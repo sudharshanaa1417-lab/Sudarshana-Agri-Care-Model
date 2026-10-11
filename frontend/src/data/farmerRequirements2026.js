@@ -73,7 +73,7 @@ export const FARMER_REQUIREMENTS_2026 = [
     actionableAdvisory: [
       'Deploy IP65 weatherproof junction boxes mounted on 1.5m bamboo or PVC poles.',
       'Calibrate capacitive soil probes for regional soil texture (Clay, Sandy Loam, Red Soil).',
-      'Use the Sudarshana Agri_Care Model dashboard for real-time telemetry streaming and automatic solenoid valve control.'
+      'Use the Sudharshana Agri_Care Model dashboard for real-time telemetry streaming and automatic solenoid valve control.'
     ],
     metricImpact: 'Democratizes precision sensor monitoring to small & marginal farmers.'
   },
@@ -128,7 +128,7 @@ export const FARMER_REQUIREMENTS_2026 = [
     farmerChallenge: 'Over 65% of smallholder farmers face difficulty reading dense English technical manuals or scientific disease names on small mobile screens.',
     techSolution2026: 'Voice-enabled AI advisory in regional languages (Hindi, Tamil, Telugu, Kannada, Marathi, Bengali). Farmers can speak or listen to prescription dosage instructions, eliminating literacy barriers and preventing hazardous pesticide over-dilution.',
     actionableAdvisory: [
-      'Click the "Listen to Digital Advice" button in Sudarshana Agri_Care to hear the complete advisory.',
+      'Click the "Listen to Digital Advice" button in Sudharshana Agri_Care to hear the complete advisory.',
       'Show the digital prescription QR code at your local Krishi Seva Kendra for exact chemical dispensing.',
       'Access 24/7 Kisan Call Center assistance directly at toll-free 1800-180-1551.'
     ],

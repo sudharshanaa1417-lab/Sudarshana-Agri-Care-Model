@@ -1,4 +1,4 @@
-# 🌾 Sudarshana Agri_Care Model
+# 🌾 Sudharshana Agri_Care Model
 ### Intelligent AI Crop Disease Detection & ESP32 IoT Real-Time Agricultural Monitoring System
 
 [![Vercel Deployment](https://img.shields.io/badge/Deploy-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com)
@@ -10,7 +10,7 @@
 
 ## 📖 1. Overview
 
-**Sudarshana Agri_Care Model** is a next-generation agricultural decision-support ecosystem built for rural farmers in India and globally. Designed to bridge the gap between advanced agricultural science and grassroots farming, the platform combines **Computer Vision Leaf Diagnostics**, **Zero-Cost Organic Homemade Remedies**, **Calibrated Chemical/Bio-Fertilizer Schedules**, and **Live ESP32 Field Telemetry**.
+**Sudharshana Agri_Care Model** is a next-generation agricultural decision-support ecosystem built for rural farmers in India and globally. Designed to bridge the gap between advanced agricultural science and grassroots farming, the platform combines **Computer Vision Leaf Diagnostics**, **Zero-Cost Organic Homemade Remedies**, **Calibrated Chemical/Bio-Fertilizer Schedules**, and **Live ESP32 Field Telemetry**.
 
 ### 🌟 Core Highlights
 1. **Camera & Device Folder Diagnostic**: Instant leaf image capture via mobile/laptop camera or device folders with real-time chlorophyll, necrosis, and lesion pattern scanning.
@@ -39,8 +39,8 @@
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/sudharshanaa1417-lab/Sudarshana-Agri-Care-Model.git
-cd Sudarshana-Agri-Care-Model
+git clone https://github.com/sudharshanaa1417-lab/Sudharshana-Agri-Care-Model.git
+cd Sudharshana-Agri-Care-Model
 
 # 2. Install dependencies
 cd frontend
@@ -57,9 +57,9 @@ npm run dev
 The project includes pre-configured `vercel.json` files at the root and frontend for zero-configuration deployment:
 
 ### Method A: Deploy via GitHub (Recommended)
-1. Push your repository to your GitHub account: `https://github.com/sudharshanaa1417-lab/Sudarshana-Agri-Care-Model`.
+1. Push your repository to your GitHub account: `https://github.com/sudharshanaa1417-lab/Sudharshana-Agri-Care-Model`.
 2. Open [Vercel Dashboard](https://vercel.com/new).
-3. Select **Import Git Repository** and choose `Sudarshana-Agri-Care-Model`.
+3. Select **Import Git Repository** and choose `Sudharshana-Agri-Care-Model`.
 4. Vercel automatically detects **Vite** with the build command `npm run build --prefix frontend` and output directory `frontend/dist`.
 5. Click **Deploy**! Your site is live in under 45 seconds.
 
@@ -93,7 +93,7 @@ The ESP32 firmware is located in `esp32_firmware/agri_care_esp32.ino`.
 
 ## 🚜 5. What are the Requirements of Farmers in 2026?
 
-| Pillar | 2026 Agrarian Challenge | Sudarshana Agri_Care Solution |
+| Pillar | 2026 Agrarian Challenge | Sudharshana Agri_Care Solution |
 |---|---|---|
 | **1. Climate Resilience** | Unseasonal storms, heatwaves, and hailstorms ruining harvest. | 72-hour hyperlocal micro-climate alerts advising whether to spray or delay harvest. |
 | **2. Groundwater Preservation** | Water table falling 2–4m annually in Punjab, Haryana, Tamil Nadu. | Automated closed-loop drip irrigation triggering below 35% soil moisture to save 42% water. |
@@ -155,5 +155,5 @@ SIH2026-PS2/
 ## 👨‍💻 7. Author & Push Instructions
 
 - **GitHub ID**: [`sudharshanaa1417-lab`](https://github.com/sudharshanaa1417-lab)
-- **Model Name**: **Sudarshana Agri_Care Model**
+- **Model Name**: **Sudharshana Agri_Care Model**
 - **Kisan Call Center Helpline**: 1800-180-1551 (Toll-Free 24x7)

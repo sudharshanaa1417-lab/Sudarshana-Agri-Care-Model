@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Sudarshana Agri_Care Model — ESP32 Real-Time Agricultural Field Sensor Firmware
+ * Sudharshana Agri_Care Model — ESP32 Real-Time Agricultural Field Sensor Firmware
  * =========================================================================================
  * 
  * Hardware Architecture:
@@ -43,7 +43,7 @@ bool isValveOpen = false;
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\n[Sudarshana Agri_Care] Initializing ESP32 Sensor Node...");
+  Serial.println("\n[Sudharshana Agri_Care] Initializing ESP32 Sensor Node...");
 
   pinMode(MOISTURE_PIN, INPUT);
   pinMode(TDS_PIN, INPUT);

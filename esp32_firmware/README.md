@@ -1,4 +1,4 @@
-# Sudarshana Agri_Care Model — ESP32 Sensor Hardware Wiring & Setup Guide
+# Sudharshana Agri_Care Model — ESP32 Sensor Hardware Wiring & Setup Guide
 
 ## 1. Hardware Bill of Materials (BOM)
 - **Microcontroller**: ESP32 WROOM-32D Development Board (Wi-Fi 802.11 b/g/n, BLE v4.2)

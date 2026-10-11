@@ -1,6 +1,6 @@
 /*
  * =========================================================================================
- * Sudarshana Agri_Care Model — ESP32 Real-Time Agricultural Field Sensor Firmware
+ * Sudharshana Agri_Care Model — ESP32 Real-Time Agricultural Field Sensor Firmware
  * =========================================================================================
  * 
  * Hardware Architecture:
@@ -30,7 +30,7 @@
 const char* WIFI_SSID     = "Kisan-Farm-Network-5G";      // Replace with your Wi-Fi SSID
 const char* WIFI_PASSWORD = "kisan_secure_password";      // Replace with your Wi-Fi Password
 
-// URL to Sudarshana Agri_Care Web Endpoint (Replace with your Laptop LAN IP e.g. 192.168.1.6 or Vercel API)
+// URL to Sudharshana Agri_Care Web Endpoint (Replace with your Laptop LAN IP e.g. 192.168.1.6 or Vercel API)
 const char* SERVER_INGEST_URL = "http://192.168.1.6:5173/api/telemetry";
 
 const char* DEVICE_ID = "ESP32-AGRI-CARE-NODE-01";
@@ -69,7 +69,7 @@ void setup() {
   delay(1000);
   
   Serial.println("\n=======================================================");
-  Serial.println("  Sudarshana Agri_Care Model — ESP32 Sensor Node v2.0  ");
+  Serial.println("  Sudharshana Agri_Care Model — ESP32 Sensor Node v2.0  ");
   Serial.println("=======================================================");
 
   // Initialize GPIO Pins
