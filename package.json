@@ -1,0 +1,21 @@
+{
+  "name": "sudarshana-agri-care-model",
+  "version": "1.0.0",
+  "description": "Sudarshana Agri_Care Model — Intelligent Crop Disease Detection & IoT Agricultural Monitoring",
+  "private": true,
+  "scripts": {
+    "dev": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "preview": "npm run preview --prefix frontend"
+  },
+  "keywords": [
+    "agritech",
+    "crop-disease-detection",
+    "iot-agriculture",
+    "esp32",
+    "rural-farmers",
+    "fertilizer-recommendation"
+  ],
+  "author": "sudharshanaa1417-lab",
+  "license": "MIT"
+}
