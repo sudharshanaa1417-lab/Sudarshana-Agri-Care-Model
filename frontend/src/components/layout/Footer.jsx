@@ -1,17 +1,20 @@
 import React from 'react';
 import AgriLogo from '../common/AgriLogo';
 import { Heart, Github, ExternalLink, PhoneCall, ShieldCheck } from 'lucide-react';
+import { TRANSLATIONS } from '../../data/translations';
 
-export default function Footer({ setActiveTab }) {
+export default function Footer({ language = 'en', setActiveTab }) {
+  const t = TRANSLATIONS[language] || TRANSLATIONS.en;
+
   return (
-    <footer className="bg-slate-900 text-slate-400 mt-20 border-t border-slate-800 text-xs">
+    <footer className="glass-panel-dark text-slate-400 mt-20 border-t border-white/10 text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-          {/* Brand Col */}
+          {/* Brand Column */}
           <div className="space-y-3 md:col-span-2">
             <AgriLogo size="md" className="brightness-110" />
             <p className="text-slate-400 text-xs max-w-sm leading-relaxed">
-              Sudarshana Agri_Care Model is an open-source, AI-powered agricultural diagnosis & ESP32 IoT monitoring ecosystem engineered for smallholder rural farmers.
+              {t.footerDesc}
             </p>
             <div className="flex items-center gap-3 pt-2 text-slate-300">
               <a
@@ -28,14 +31,14 @@ export default function Footer({ setActiveTab }) {
 
           {/* Quick Nav */}
           <div className="space-y-2">
-            <h4 className="text-white font-bold text-xs uppercase tracking-wider">System Modules</h4>
+            <h4 className="text-white font-bold text-xs uppercase tracking-wider">{t.systemModules}</h4>
             <ul className="space-y-1.5">
               <li>
                 <button
                   onClick={() => setActiveTab('detect')}
                   className="hover:text-emerald-400 transition-colors text-left"
                 >
-                  Crop Disease AI Detector
+                  {t.navDetect}
                 </button>
               </li>
               <li>
@@ -43,7 +46,7 @@ export default function Footer({ setActiveTab }) {
                   onClick={() => setActiveTab('iot')}
                   className="hover:text-emerald-400 transition-colors text-left"
                 >
-                  ESP32 IoT Real-Time Telemetry
+                  {t.navIot}
                 </button>
               </li>
               <li>
@@ -51,7 +54,7 @@ export default function Footer({ setActiveTab }) {
                   onClick={() => setActiveTab('2026')}
                   className="hover:text-emerald-400 transition-colors text-left"
                 >
-                  2026 Farmer Requirements & Mandi
+                  {t.nav2026}
                 </button>
               </li>
               <li>
@@ -59,7 +62,7 @@ export default function Footer({ setActiveTab }) {
                   onClick={() => setActiveTab('prescriptions')}
                   className="hover:text-emerald-400 transition-colors text-left"
                 >
-                  Digital Agri Prescriptions
+                  {t.navPrescriptions}
                 </button>
               </li>
             </ul>
@@ -67,9 +70,9 @@ export default function Footer({ setActiveTab }) {
 
           {/* Helpline & Portals */}
           <div className="space-y-2">
-            <h4 className="text-white font-bold text-xs uppercase tracking-wider">Farmer Assistance</h4>
+            <h4 className="text-white font-bold text-xs uppercase tracking-wider">{t.farmerAssistance}</h4>
             <ul className="space-y-1.5">
-              <li className="flex items-center gap-1 text-emerald-400 font-semibold">
+              <li className="flex items-center gap-1 text-emerald-400 font-bold">
                 <PhoneCall className="w-3.5 h-3.5" />
                 <span>1800-180-1551 (Kisan Helpline)</span>
               </li>
@@ -91,7 +94,7 @@ export default function Footer({ setActiveTab }) {
                   rel="noreferrer"
                   className="hover:text-emerald-400 flex items-center gap-1"
                 >
-                  <span>e-NAM Mandi Prices</span>
+                  <span>e-NAM Mandi Portal</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
               </li>
@@ -110,9 +113,9 @@ export default function Footer({ setActiveTab }) {
           </div>
         </div>
 
-        <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-[11px]">
+        <div className="pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-[11px]">
           <div>
-            &copy; 2026 Sudarshana Agri_Care Model. Built with precision for sustainable Indian and global agriculture.
+            &copy; 2026 AgriCare. {t.allRightsReserved}
           </div>
           <div className="flex items-center gap-1 text-slate-400">
             <span>Precision AgTech for Rural Prosperity</span>

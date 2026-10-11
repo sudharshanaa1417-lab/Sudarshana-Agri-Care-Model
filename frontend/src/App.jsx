@@ -41,7 +41,6 @@ export default function App() {
     }
   });
 
-  // Save new prescription
   const handleSavePrescription = (result) => {
     setPrescriptions((prev) => {
       const updated = [result, ...prev.filter((p) => p.id !== result.id)].slice(0, 20);
@@ -64,8 +63,13 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 font-sans antialiased selection:bg-emerald-500 selection:text-white">
-      {/* Top Navigation */}
+    <div className="relative min-h-screen flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white">
+      {/* Ambient Floating Glassmorphic Glow Orbs */}
+      <div className="fixed top-12 left-12 w-96 h-96 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none -z-10 animate-pulse"></div>
+      <div className="fixed top-1/3 right-12 w-[30rem] h-[30rem] bg-cyan-400/15 rounded-full blur-3xl pointer-events-none -z-10"></div>
+      <div className="fixed bottom-12 left-1/4 w-80 h-80 bg-amber-400/15 rounded-full blur-3xl pointer-events-none -z-10"></div>
+
+      {/* Top Glass Navigation */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -75,7 +79,7 @@ export default function App() {
         prescriptionCount={prescriptions.length}
       />
 
-      {/* Main Container */}
+      {/* Main Glass Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
         {activeTab === 'detect' && (
           <CropDetector
@@ -102,6 +106,7 @@ export default function App() {
 
         {activeTab === 'prescriptions' && (
           <PrescriptionHistory
+            language={language}
             prescriptions={prescriptions}
             onSelectPrescription={() => {}}
             onClearPrescriptions={handleClearPrescriptions}
@@ -110,8 +115,8 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer */}
-      <Footer setActiveTab={setActiveTab} />
+      {/* Glass Footer */}
+      <Footer language={language} setActiveTab={setActiveTab} />
     </div>
   );
 }

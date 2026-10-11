@@ -18,11 +18,11 @@ import {
 } from 'lucide-react';
 import { FARMER_REQUIREMENTS_2026, MANDI_PRICES_2026_SAMPLE } from '../../data/farmerRequirements2026';
 import { TRANSLATIONS } from '../../data/translations';
+import { getLocalizedCropName } from '../../data/cropDiseases';
 
 export default function FarmerHub2026({ language }) {
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
   const [expandedReq, setExpandedReq] = useState('req-climate');
-  const [selectedScheme, setSelectedScheme] = useState(null);
 
   const getIcon = (iconName) => {
     switch (iconName) {
@@ -45,37 +45,80 @@ export default function FarmerHub2026({ language }) {
     }
   };
 
+  // Localized Titles for the 7 Pillars
+  const pillarTitles = {
+    'req-climate': {
+      hi: 'जलवायु-सहिष्णु कृषि एवं हाइपरलोकल मौसम पूर्वानुमान (एआई)',
+      ta: 'காலநிலை மாற்றத்தை தாங்கும் விவசாயம் & AI வானிலை எச்சரிக்கை',
+      te: 'వాతావరణ మార్పులను తట్టుకునే వ్యవసాయం & AI సూచనలు',
+      kn: 'ಹವಾಮಾನ ಸ್ಥಿತಿಸ್ಥಾಪಕ ಕೃಷಿ ಮತ್ತು AI ಮುನ್ಸೂಚನೆ'
+    },
+    'req-water': {
+      hi: 'स्वचालित सटीक ड्रिप सिंचाई एवं भूजल संरक्षण',
+      ta: 'தானியங்கி துல்லிய சொட்டு நீர் பாசனம் & நிலத்தடி நீர் பாதுகாப்பு',
+      te: 'స్వయంచాలక డ్రిప్ నీటి పారుదల & భూగర్భ జలాల పరిరక్షణ',
+      kn: 'ಸ್ವಯಂಚಾಲಿತ ಹನಿ ನೀರಾವರಿ ಮತ್ತು ಅಂತರ್ಜಲ ಸಂರಕ್ಷಣೆ'
+    },
+    'req-carbon': {
+      hi: 'मिट्टी में जैविक कार्बन सुधार एवं कार्बन क्रेडिट कमाई (₹1,500/एकड़)',
+      ta: 'மண் கரிம கார்பன் பெருக்கம் & கார்பன் கிரెடிட் வருமானம்',
+      te: 'నేల సేంద్రీయ కార్బన్ పెంపు & కార్బన్ క్రెడిట్ ఆదాయం',
+      kn: 'ಮಣ್ಣಿನ ಸಾವಯವ ಇಂಗಾಲ ಸುಧಾರಣೆ ಮತ್ತು ಕಾರ್ಬನ್ ಕ್ರೆಡಿಟ್ ಆದಾಯ'
+    },
+    'req-mandi': {
+      hi: 'ई-नाम (e-NAM) सीधा डिजिटल मंडी भाव एवं बिचौलिया मुक्ति',
+      ta: 'இ-நாம் (e-NAM) நேரடி மண்டி விலை & இடைத்தரகர் ஒழிப்பு',
+      te: 'ఈ-నామ్ (e-NAM) ప్రత్యక్ష మార్కెట్ ధరలు & దళారుల నివారణ',
+      kn: 'ಇ-ನಾಮ್ (e-NAM) ನೇರ ಮಂಡಿ ದರಗಳು ಮತ್ತು ದಲ್ಲಾಳಿಗಳ ಮುಕ್ತಿ'
+    },
+    'req-iot-hardware': {
+      hi: 'अत्यंत किफायती सौर ऊर्जा संचालित ईएसपी32 फील्ड सेंसर नोड्स (< ₹2,000)',
+      ta: 'மலிவு விலை சோலார் ESP32 சென்சார் முனையங்கள் (< ₹2,000)',
+      te: 'చౌకైన సౌర శక్తి ESP32 సెన్సార్లు (< ₹2,000)',
+      kn: 'ಕಡಿಮೆ ವೆಚ್ಚದ ಸೌರಶಕ್ತಿ ಚಾಲಿತ ESP32 ಸಂವೇದಕಗಳು (< ₹2,000)'
+    },
+    'req-schemes': {
+      hi: '2026 सरकारी सब्सिडी एवं प्रत्यक्ष लाभ अंतरण (DBT) पोर्टल',
+      ta: '2026 அரசு மானியங்கள் & நேரடி நிதி உதவி திட்டங்கள்',
+      te: '2026 ప్రభుత్వ రాయితీలు & ప్రత్యక్ష నగదు బదిలీ పథకాలు',
+      kn: '2026 ಸರ್ಕಾರಿ ಸಬ್ಸಿಡಿಗಳು ಮತ್ತು ನೇರ ಆರ್ಥಿಕ ನೆರವು'
+    },
+    'req-vernacular-voice': {
+      hi: 'मातृभाषा में वॉयस-फर्स्ट डिजिटल सहायक (हिंदी, तमिल, तेलुगु, कन्नड़)',
+      ta: 'தாய்மொழி குரல் வழி டிஜிட்டல் உதவி (தமிழ், இந்தி, தெலுங்கு)',
+      te: 'మాతృభాష వాయిస్ డిజిటల్ సహాయం (తెలుగు, హిందీ, తమిళం)',
+      kn: 'ಮಾತೃಭಾಷಾ ಧ್ವನಿ ಡಿಜಿಟಲ್ ಸಹಾಯ (ಕನ್ನಡ, ಹಿಂದಿ, ತೆಲುಗು)'
+    }
+  };
+
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white rounded-3xl p-6 sm:p-10 shadow-xl border border-emerald-800">
+      {/* Header Glassmorphism Banner */}
+      <div className="glass-panel-dark text-white rounded-3xl p-6 sm:p-10 shadow-2xl border border-white/20">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-400/30 mb-3">
           <Calendar className="w-3.5 h-3.5" />
-          <span>Strategic Agricultural Report — Year 2026</span>
+          <span>Strategic Agriculture 2026</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-black tracking-tight">
           {t.hub2026Title}
         </h1>
         <p className="text-xs sm:text-base text-emerald-100/90 mt-2 max-w-2xl leading-relaxed">
-          {t.hub2026Subtitle} — Addressing the critical climate shifts, water conservation imperatives,
-          organic certification mandates, and real-time market access required by modern farmers in 2026.
+          {t.hub2026Subtitle}
         </p>
       </div>
 
       {/* 2026 Live Mandi Intelligence Ticker */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
+      <div className="glass-panel rounded-3xl p-6 shadow-xl border border-white">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-emerald-600" />
-              <span>2026 APMC Mandi Price Intelligence (e-NAM Direct)</span>
+              <span>{t.mandiTitle}</span>
             </h2>
-            <p className="text-xs text-slate-500">
-              Live modal trade rates across major Indian wholesale agricultural markets
-            </p>
+            <p className="text-xs text-slate-500">{t.mandiSub}</p>
           </div>
-          <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 self-start sm:self-auto">
-            Updated Hourly
+          <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100/90 text-emerald-800 border border-emerald-300 self-start sm:self-auto shadow-sm">
+            {t.updatedHourly}
           </span>
         </div>
 
@@ -83,13 +126,27 @@ export default function FarmerHub2026({ language }) {
           {MANDI_PRICES_2026_SAMPLE.map((mandi, idx) => (
             <div
               key={idx}
-              className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 hover:border-emerald-400 transition-all flex flex-col justify-between"
+              className="p-4 rounded-2xl bg-white/70 backdrop-blur-md border border-white shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900 truncate">{mandi.crop}</span>
+                  <span className="text-xs font-black text-slate-900 truncate">
+                    {mandi.crop.includes('Paddy')
+                      ? getLocalizedCropName('Rice / Paddy', language) + ' (' + mandi.crop.split('(')[1]
+                      : mandi.crop.includes('Tomato')
+                      ? getLocalizedCropName('Tomato', language)
+                      : mandi.crop.includes('Potato')
+                      ? getLocalizedCropName('Potato', language)
+                      : mandi.crop.includes('Wheat')
+                      ? getLocalizedCropName('Wheat', language)
+                      : mandi.crop.includes('Cotton')
+                      ? getLocalizedCropName('Cotton', language)
+                      : mandi.crop.includes('Chilli')
+                      ? getLocalizedCropName('Chilli / Pepper', language)
+                      : mandi.crop}
+                  </span>
                   <span
-                    className={`text-[10px] font-bold ${
+                    className={`text-[10px] font-black ${
                       mandi.trend.startsWith('+') ? 'text-emerald-600' : 'text-rose-600'
                     }`}
                   >
@@ -98,7 +155,7 @@ export default function FarmerHub2026({ language }) {
                 </div>
                 <span className="text-[11px] text-slate-500 block">{mandi.mandi}</span>
               </div>
-              <div className="mt-3 pt-2 border-t border-slate-200 flex items-baseline justify-between">
+              <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-baseline justify-between">
                 <span className="text-sm font-black text-slate-900">{mandi.modalPrice}</span>
                 <span className="text-[10px] text-slate-400 font-semibold">MSP: {mandi.msp}</span>
               </div>
@@ -107,37 +164,39 @@ export default function FarmerHub2026({ language }) {
         </div>
       </div>
 
-      {/* The 7 Core Pillars of 2026 Farmer Requirements */}
+      {/* The 7 Core Pillars */}
       <div className="space-y-4">
         <div className="mb-2">
-          <h2 className="text-2xl font-bold text-slate-900">
-            Key Priorities & Technological Demands of Farmers in 2026
+          <h2 className="text-2xl font-black text-slate-900">
+            {t.keyPrioritiesTitle}
           </h2>
           <p className="text-sm text-slate-500">
-            Detailed breakdown of field challenges, 2026 AI/IoT engineering solutions, and actionable agronomic steps:
+            {t.keyPrioritiesSub}
           </p>
         </div>
 
         <div className="space-y-3">
           {FARMER_REQUIREMENTS_2026.map((req) => {
             const isExpanded = expandedReq === req.id;
+            const localizedTitle = pillarTitles[req.id]?.[language] || req.title;
+
             return (
               <div
                 key={req.id}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-200"
+                className="glass-panel rounded-3xl border border-white shadow-sm overflow-hidden transition-all duration-200"
               >
                 {/* Header Row */}
                 <div
                   onClick={() => setExpandedReq(isExpanded ? null : req.id)}
-                  className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"
+                  className="p-5 flex items-center justify-between cursor-pointer hover:bg-white/90 transition-colors"
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 flex-shrink-0">
+                    <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 flex-shrink-0 shadow-sm">
                       {getIcon(req.icon)}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-bold text-slate-900">{req.title}</h3>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900">{localizedTitle}</h3>
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 uppercase">
                           {req.priority}
                         </span>
@@ -160,28 +219,25 @@ export default function FarmerHub2026({ language }) {
 
                 {/* Expanded Details */}
                 {isExpanded && (
-                  <div className="p-6 pt-0 border-t border-slate-100 bg-slate-50/50 space-y-4 text-xs sm:text-sm animate-fadeIn">
-                    {/* The 2026 Challenge */}
-                    <div className="bg-rose-50/80 p-4 rounded-xl border border-rose-200 text-rose-950">
+                  <div className="p-6 pt-0 border-t border-slate-100 bg-white/40 space-y-4 text-xs sm:text-sm animate-fadeIn">
+                    <div className="bg-rose-50/80 p-4 rounded-2xl border border-rose-200 text-rose-950 backdrop-blur-sm">
                       <strong className="block text-rose-900 text-xs uppercase mb-1">
-                        The 2026 Field Challenge:
+                        {t.fieldChallenge}
                       </strong>
                       <p className="text-xs leading-relaxed">{req.farmerChallenge}</p>
                     </div>
 
-                    {/* The 2026 Technology Solution */}
-                    <div className="bg-emerald-50/80 p-4 rounded-xl border border-emerald-200 text-emerald-950">
+                    <div className="bg-emerald-50/80 p-4 rounded-2xl border border-emerald-200 text-emerald-950 backdrop-blur-sm">
                       <strong className="block text-emerald-900 text-xs uppercase mb-1">
-                        Sudarshana Agri_Care 2026 Solution:
+                        {t.solution2026}
                       </strong>
                       <p className="text-xs leading-relaxed">{req.techSolution2026}</p>
                     </div>
 
-                    {/* Actionable Steps for Farmer */}
                     {req.actionableAdvisory && (
                       <div className="space-y-2">
                         <strong className="block text-slate-800 text-xs uppercase">
-                          Recommended Actionable Advisory for Rural Farmers:
+                          {t.actionableAdvisory}
                         </strong>
                         <ul className="space-y-1.5 text-xs text-slate-700">
                           {req.actionableAdvisory.map((step, idx) => (
@@ -194,17 +250,16 @@ export default function FarmerHub2026({ language }) {
                       </div>
                     )}
 
-                    {/* Government Schemes List (If applicable) */}
                     {req.schemesList && (
                       <div className="space-y-3 pt-2">
                         <strong className="block text-slate-800 text-xs uppercase">
-                          Major Indian Government Subsidies & Portals in 2026:
+                          {t.govSchemesTitle}
                         </strong>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {req.schemesList.map((scheme, sIdx) => (
                             <div
                               key={sIdx}
-                              className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-1 shadow-sm"
+                              className="p-3.5 bg-white/90 rounded-2xl border border-white space-y-1 shadow-sm backdrop-blur-md"
                             >
                               <div className="flex items-center justify-between">
                                 <h4 className="text-xs font-bold text-slate-900">{scheme.name}</h4>
@@ -228,21 +283,21 @@ export default function FarmerHub2026({ language }) {
       </div>
 
       {/* Emergency Kisan Call Center Quick Card */}
-      <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-3xl p-6 sm:p-8 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-6">
+      <div className="glass-panel-amber text-amber-950 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6 border border-amber-300">
         <div className="space-y-1 text-center sm:text-left">
           <h3 className="text-xl sm:text-2xl font-black">
-            Kisan Call Center: 1800-180-1551 (Toll-Free 24x7)
+            {t.kisanCallCenterTitle}
           </h3>
-          <p className="text-xs sm:text-sm text-amber-100">
-            Government of India agricultural experts available round-the-clock in 22 local Indian languages.
+          <p className="text-xs sm:text-sm text-amber-900">
+            {t.kisanCallCenterSub}
           </p>
         </div>
         <a
           href="tel:18001801551"
-          className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-white text-amber-900 font-black text-sm shadow-md hover:bg-amber-50 transition-all whitespace-nowrap"
+          className="flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-white/90 hover:bg-white text-amber-950 font-black text-sm shadow-md transition-all whitespace-nowrap border border-amber-300"
         >
-          <PhoneCall className="w-4 h-4 text-amber-700 animate-pulse" />
-          <span>Call 1800-180-1551 Free</span>
+          <PhoneCall className="w-4 h-4 text-amber-600 animate-pulse" />
+          <span>{t.callFreeBtn}</span>
         </a>
       </div>
     </div>
