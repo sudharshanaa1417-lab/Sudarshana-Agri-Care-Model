@@ -181,16 +181,28 @@ export default function CropDetector({ language, onSavePrescription }) {
   // Re-run diagnosis when user changes crop or condition override on existing image
   const handleChangeCrop = (newCrop) => {
     setSelectedCrop(newCrop);
-    if (selectedImage || diagnosisResult) {
+    if (selectedImage) {
       runDiagnosis(selectedImage, null, newCrop, forcedCondition);
+    } else if (diagnosisResult) {
+      const candidate = CROP_DISEASES.find((d) => d.cropKey.toLowerCase().includes(newCrop.toLowerCase()));
+      if (candidate) {
+        runDiagnosis(null, candidate.id, newCrop, forcedCondition);
+      }
     }
   };
 
   const handleToggleCondition = () => {
     const nextCond = diagnosisResult?.status === 'healthy' ? 'affected' : 'healthy';
     setForcedCondition(nextCond);
-    if (selectedImage || diagnosisResult) {
-      runDiagnosis(selectedImage, null, diagnosisResult?.cropKey || selectedCrop, nextCond);
+    const activeCrop = diagnosisResult?.cropKey || selectedCrop;
+    if (selectedImage) {
+      runDiagnosis(selectedImage, null, activeCrop, nextCond);
+    } else if (diagnosisResult) {
+      const candidates = CROP_DISEASES.filter((d) => d.cropKey === activeCrop);
+      const match = candidates.find((d) => d.status === nextCond) || candidates[0];
+      if (match) {
+        runDiagnosis(null, match.id, activeCrop, nextCond);
+      }
     }
   };
 
@@ -536,21 +548,25 @@ export default function CropDetector({ language, onSavePrescription }) {
               </h2>
 
               {/* 1-Click Crop Switcher: Guarantees Farmer Never Gets Stuck with Wrong Crop */}
-              <div className="pt-1 flex items-center gap-2">
-                <span className="text-[11px] font-bold text-slate-500">{t.changeCropLabel}</span>
-                <select
-                  value={diagnosisResult.cropKey}
-                  onChange={(e) => handleChangeCrop(e.target.value)}
-                  className="px-2.5 py-1 text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                >
+              <div className="pt-2 space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-500 block">{t.changeCropLabel}</span>
+                <div className="flex flex-wrap gap-1.5">
                   {cropList
                     .filter((c) => c.key !== 'auto')
                     .map((c) => (
-                      <option key={c.key} value={c.key}>
+                      <button
+                        key={c.key}
+                        onClick={() => handleChangeCrop(c.key)}
+                        className={`px-2.5 py-1 text-xs font-bold rounded-xl border transition-all shadow-sm ${
+                          diagnosisResult.cropKey === c.key
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-600/30 ring-2 ring-emerald-500/30'
+                            : 'bg-white/80 hover:bg-emerald-50 text-slate-700 border-slate-200'
+                        }`}
+                      >
                         {c.label}
-                      </option>
+                      </button>
                     ))}
-                </select>
+                </div>
               </div>
             </div>
 
@@ -636,6 +652,14 @@ export default function CropDetector({ language, onSavePrescription }) {
                     {diagnosisResult.leafMetrics?.necrosisLesionRatio || (diagnosisResult.status === 'healthy' ? 0 : 42)}%
                   </span>
                 </div>
+                {diagnosisResult.leafMetrics?.redFruitRatio > 1.5 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Lycopene / Fruit Spectrum:</span>
+                    <span className="font-bold text-rose-600">
+                      {diagnosisResult.leafMetrics.redFruitRatio}% (Ripe Fruit Stage)
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-slate-600">
                   <span>{t.healthScoreLabel}</span>
                   <span className="font-black text-slate-900">{diagnosisResult.healthScore} / 100</span>
