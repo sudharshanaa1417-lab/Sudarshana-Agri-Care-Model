@@ -58,13 +58,20 @@ export default function CropDetector({ language, onSavePrescription }) {
   const cropList = [
     { key: 'auto', label: t.autoDetect },
     { key: 'Tomato', label: getLocalizedCropName('Tomato', language) },
-    { key: 'Rice / Paddy', label: getLocalizedCropName('Rice / Paddy', language) },
     { key: 'Potato', label: getLocalizedCropName('Potato', language) },
-    { key: 'Wheat', label: getLocalizedCropName('Wheat', language) },
-    { key: 'Cotton', label: getLocalizedCropName('Cotton', language) },
+    { key: 'Apple', label: getLocalizedCropName('Apple', language) },
     { key: 'Corn / Maize', label: getLocalizedCropName('Corn / Maize', language) },
+    { key: 'Grape', label: getLocalizedCropName('Grape', language) },
     { key: 'Chilli / Pepper', label: getLocalizedCropName('Chilli / Pepper', language) },
-    { key: 'Apple', label: getLocalizedCropName('Apple', language) }
+    { key: 'Orange / Citrus', label: getLocalizedCropName('Orange / Citrus', language) },
+    { key: 'Peach', label: getLocalizedCropName('Peach', language) },
+    { key: 'Cherry', label: getLocalizedCropName('Cherry', language) },
+    { key: 'Strawberry', label: getLocalizedCropName('Strawberry', language) },
+    { key: 'Squash', label: getLocalizedCropName('Squash', language) },
+    { key: 'Soybean', label: getLocalizedCropName('Soybean', language) },
+    { key: 'Rice / Paddy', label: getLocalizedCropName('Rice / Paddy', language) },
+    { key: 'Wheat', label: getLocalizedCropName('Wheat', language) },
+    { key: 'Cotton', label: getLocalizedCropName('Cotton', language) }
   ];
 
   // Camera stream handler
@@ -278,7 +285,7 @@ export default function CropDetector({ language, onSavePrescription }) {
     window.print();
   };
 
-  const sampleCrops = ['all', 'Tomato', 'Rice / Paddy', 'Potato', 'Wheat', 'Cotton', 'Corn / Maize', 'Chilli / Pepper', 'Apple'];
+  const sampleCrops = ['all', 'Tomato', 'Potato', 'Apple', 'Corn / Maize', 'Grape', 'Chilli / Pepper', 'Rice / Paddy', 'Wheat', 'Cotton', 'Strawberry', 'Squash'];
   const filteredSamples =
     activeCropFilter === 'all'
       ? CROP_DISEASES
@@ -572,8 +579,13 @@ export default function CropDetector({ language, onSavePrescription }) {
 
             {/* Status Badge & Voice & Print Controls */}
             <div className="flex flex-wrap items-center gap-2.5">
-              {/* Healthy vs Affected Badge */}
-              {diagnosisResult.status === 'healthy' ? (
+              {/* Healthy vs Affected vs Background Badge */}
+              {diagnosisResult.status === 'background' ? (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-200 text-slate-800 border-2 border-slate-400 font-black text-xs sm:text-sm shadow-sm">
+                  <AlertTriangle className="w-4 h-4 text-slate-600" />
+                  <span>NON-PLANT BACKGROUND — PLEASE ALIGN CAMERA OVER LEAF</span>
+                </div>
+              ) : diagnosisResult.status === 'healthy' ? (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-100/90 text-emerald-900 border-2 border-emerald-400 font-black text-xs sm:text-sm shadow-sm">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   <span>{t.healthyBadge}</span>
