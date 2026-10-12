@@ -11,12 +11,21 @@ import json
 import time
 from pathlib import Path
 from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
 from PIL import Image
 import numpy as np
 
 app = Flask(__name__, static_folder='frontend/dist', static_url_path='/')
-CORS(app)
+
+try:
+    from flask_cors import CORS
+    CORS(app)
+except ImportError:
+    @app.after_request
+    def add_cors_headers(response):
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -67,52 +76,102 @@ except Exception as e:
     print(f"[AI MODEL] Initialization: {e}")
 
 # In-memory ESP32 telemetry cache
+telemetry_history_buffer = []
+
 telemetry_state = {
     "device": "ESP32",
-    "online": True,
+    "device_id": "ESP32-SUDHARSHANA-NODE",
+    "online": False,
     "soil_moisture": 64.5,
+    "soil_adc": 2100,
     "humidity": 71.2,
     "temperature": 28.4,
-    "water_level": 385,
+    "air_temperature": 28.4,
+    "water_temperature": 24.8,
     "tds_ppm": 385,
+    "ec": 0.77,
+    "voltage": 1.25,
+    "rssi": -65,
     "valve_status": "AUTO",
     "last_updated": time.strftime("%H:%M:%S"),
-    "last_ping_timestamp": time.time()
+    "last_ping_timestamp": 0
 }
 
 @app.route('/api/status', methods=['GET'])
 def get_status():
     age = time.time() - telemetry_state["last_ping_timestamp"]
-    is_online = age <= 20
+    is_online = (telemetry_state["last_ping_timestamp"] > 0) and (age <= 15)
     return jsonify({
         "status": "active",
         "app": "Sudharshana Agri_Care Model",
         "esp32_online": is_online,
         "model_loaded": keras_model is not None or onnx_session is not None,
         "classes_count": len(DISEASE_LABELS),
-        "server_time": time.strftime("%Y-%m-%d %H:%M:%S")
+        "server_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "telemetry_age_seconds": round(age, 1) if telemetry_state["last_ping_timestamp"] > 0 else None
     })
 
 @app.route('/api/telemetry', methods=['GET', 'POST'])
 def handle_telemetry():
+    global telemetry_history_buffer
     if request.method == 'POST':
         try:
             data = request.get_json(force=True)
-            telemetry_state["soil_moisture"] = float(data.get("moisture", data.get("soil_moisture", telemetry_state["soil_moisture"])))
-            telemetry_state["humidity"] = float(data.get("humidity", telemetry_state["humidity"]))
-            telemetry_state["temperature"] = float(data.get("temperature", telemetry_state["temperature"]))
-            telemetry_state["tds_ppm"] = float(data.get("tds", data.get("tds_ppm", telemetry_state["tds_ppm"])))
-            telemetry_state["valve_status"] = data.get("valve", telemetry_state["valve_status"])
-            telemetry_state["last_updated"] = time.strftime("%H:%M:%S")
-            telemetry_state["last_ping_timestamp"] = time.time()
-            telemetry_state["online"] = True
+            now_str = time.strftime("%H:%M:%S")
+
+            # Extract sensor readings
+            soil_m = float(data.get("moisture", data.get("soil_moisture", telemetry_state["soil_moisture"])))
+            hum = float(data.get("humidity", telemetry_state["humidity"]))
+            air_t = float(data.get("air_temperature", data.get("temperature", telemetry_state["temperature"])))
+            water_t = float(data.get("water_temperature", telemetry_state.get("water_temperature", 24.8)))
+            tds = float(data.get("tds", data.get("tds_ppm", telemetry_state["tds_ppm"])))
+            ec = float(data.get("ec", telemetry_state.get("ec", 0.0)))
+            volt = float(data.get("voltage", telemetry_state.get("voltage", 0.0)))
+            soil_adc = float(data.get("soil_adc", telemetry_state.get("soil_adc", 0.0)))
+            rssi = data.get("rssi", telemetry_state.get("rssi", -65))
+            dev_id = data.get("device_id", telemetry_state.get("device_id", "ESP32"))
+
+            telemetry_state.update({
+                "device": "ESP32",
+                "device_id": dev_id,
+                "soil_moisture": round(soil_m, 1),
+                "soil_adc": round(soil_adc, 1),
+                "humidity": round(hum, 1),
+                "temperature": round(air_t, 1),
+                "air_temperature": round(air_t, 1),
+                "water_temperature": round(water_t, 1),
+                "tds_ppm": round(tds, 1),
+                "ec": round(ec, 3),
+                "voltage": round(volt, 2),
+                "rssi": rssi,
+                "valve_status": data.get("valve", telemetry_state["valve_status"]),
+                "last_updated": now_str,
+                "last_ping_timestamp": time.time(),
+                "online": True
+            })
+
+            # Append to rolling history
+            telemetry_history_buffer.append({
+                "time": now_str,
+                "moisture": round(soil_m, 1),
+                "temperature": round(air_t, 1),
+                "water_temp": round(water_t, 1),
+                "humidity": round(hum, 1),
+                "tds": round(tds / 10, 1)
+            })
+            if len(telemetry_history_buffer) > 30:
+                telemetry_history_buffer.pop(0)
+
+            print(f"[ESP32 TELEMETRY] Moisture: {soil_m}% | AirTemp: {air_t}C | WaterTemp: {water_t}C | Hum: {hum}% | TDS: {tds} ppm")
             return jsonify({"status": "success", "message": "Telemetry ingested"}), 200
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 400
     else:
         age = time.time() - telemetry_state["last_ping_timestamp"]
-        telemetry_state["online"] = age <= 20
-        return jsonify(telemetry_state)
+        telemetry_state["online"] = (telemetry_state["last_ping_timestamp"] > 0) and (age <= 15)
+        response_data = dict(telemetry_state)
+        response_data["history"] = telemetry_history_buffer
+        return jsonify(response_data)
 
 @app.route('/api/predict', methods=['POST'])
 def predict_disease():
@@ -173,7 +232,7 @@ def serve_frontend(path):
 
 if __name__ == '__main__':
     print("\n=======================================================")
-    print("🌾 Sudharshana Agri_Care Model Server")
+    print("[AGRI CARE] Sudharshana Agri_Care Model Server")
     print("Running on: http://localhost:5000")
     print("ESP32 Ingest URL: http://<LAN_IP>:5000/api/telemetry")
     print("=======================================================\n")

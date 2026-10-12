@@ -16,7 +16,10 @@ export default function App() {
     soilMoisture: 64.5,
     humidity: 71.2,
     temperature: 28.4,
+    waterTemperature: 24.8,
     tdsLevel: 385,
+    ec: 0.77,
+    soilAdc: 2100,
     lastUpdated: new Date().toLocaleTimeString()
   });
 
@@ -30,6 +33,49 @@ export default function App() {
     { time: '16:00', moisture: 58.2, temperature: 30.8, humidity: 66.4, tds: 38 },
     { time: '18:00', moisture: 64.5, temperature: 28.4, humidity: 71.2, tds: 38 }
   ]);
+
+  // Live polling for ESP32 telemetry from server.py /api/telemetry
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLiveTelemetry = async () => {
+      try {
+        const response = await fetch('/api/telemetry');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!isMounted) return;
+
+        if (data.online) {
+          setEsp32Status('online');
+          setTelemetryData((prev) => ({
+            ...prev,
+            soilMoisture: data.soil_moisture !== undefined ? data.soil_moisture : prev.soilMoisture,
+            humidity: data.humidity !== undefined ? data.humidity : prev.humidity,
+            temperature: data.air_temperature !== undefined ? data.air_temperature : (data.temperature !== undefined ? data.temperature : prev.temperature),
+            waterTemperature: data.water_temperature !== undefined ? data.water_temperature : prev.waterTemperature,
+            tdsLevel: data.tds_ppm !== undefined ? data.tds_ppm : prev.tdsLevel,
+            ec: data.ec !== undefined ? data.ec : prev.ec,
+            soilAdc: data.soil_adc !== undefined ? data.soil_adc : prev.soilAdc,
+            lastUpdated: data.last_updated || new Date().toLocaleTimeString()
+          }));
+
+          if (data.history && data.history.length > 0) {
+            setTelemetryHistory(data.history);
+          }
+        } else {
+          setEsp32Status((curr) => (curr === 'simulated' ? 'simulated' : 'offline'));
+        }
+      } catch (err) {
+        // Silent catch: in local offline or standalone mode, maintain state
+      }
+    };
+
+    fetchLiveTelemetry();
+    const interval = setInterval(fetchLiveTelemetry, 2500);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Saved Prescriptions list
   const [prescriptions, setPrescriptions] = useState(() => {

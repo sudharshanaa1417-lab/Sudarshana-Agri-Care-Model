@@ -46,9 +46,9 @@ export default function IotDashboard({
   const [lastPingSeconds, setLastPingSeconds] = useState(1);
   const [chartTimeframe, setChartTimeframe] = useState('24h');
 
-  // Real-time sensor ticker
+  // Real-time sensor ticker (only active during simulation mode)
   useEffect(() => {
-    if (!isSimulating || esp32Status === 'offline') return;
+    if (esp32Status !== 'simulated') return;
 
     const interval = setInterval(() => {
       setLastPingSeconds(1);
@@ -56,11 +56,13 @@ export default function IotDashboard({
       setTelemetryData((prev) => {
         const baseMoisture = isValveActive ? Math.min(prev.soilMoisture + 1.2, 78) : Math.max(prev.soilMoisture - 0.25, 32);
         const baseTemp = 28.0 + (Math.sin(Date.now() / 60000) * 2.5);
+        const baseWaterTemp = 24.5 + (Math.sin(Date.now() / 75000) * 1.8);
         const baseHumidity = 68.0 + (Math.cos(Date.now() / 80000) * 4.0);
         const baseTds = 380 + Math.floor(Math.sin(Date.now() / 90000) * 25);
 
         const newMoisture = parseFloat(baseMoisture.toFixed(1));
         const newTemp = parseFloat(baseTemp.toFixed(1));
+        const newWaterTemp = parseFloat(baseWaterTemp.toFixed(1));
         const newHumidity = parseFloat(baseHumidity.toFixed(1));
         const newTds = Math.round(baseTds);
 
@@ -77,6 +79,7 @@ export default function IotDashboard({
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           moisture: newMoisture,
           temperature: newTemp,
+          water_temp: newWaterTemp,
           humidity: newHumidity,
           tds: Math.round(newTds / 10)
         };
@@ -86,8 +89,11 @@ export default function IotDashboard({
         return {
           soilMoisture: newMoisture,
           temperature: newTemp,
+          waterTemperature: newWaterTemp,
           humidity: newHumidity,
           tdsLevel: newTds,
+          ec: parseFloat(((newTds * 2) / 1000).toFixed(3)),
+          soilAdc: Math.round(3200 - (newMoisture / 100) * 2000),
           lastUpdated: new Date().toLocaleTimeString()
         };
       });
@@ -101,7 +107,7 @@ export default function IotDashboard({
       clearInterval(interval);
       clearInterval(pingTimer);
     };
-  }, [isSimulating, esp32Status, isValveActive, irrigationValveState]);
+  }, [esp32Status, isValveActive, irrigationValveState]);
 
   const handleValveToggle = () => {
     if (irrigationValveState === 'auto') {
@@ -226,16 +232,16 @@ export default function IotDashboard({
         </div>
       </div>
 
-      {/* The 4 Core Sensor Telemetry Gauges / Cards in Glassmorphism */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Metric 1: Soil Moisture Level */}
-        <div className="relative glass-panel rounded-3xl p-6 shadow-xl border border-white overflow-hidden hover:-translate-y-1 transition-all group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-105 transition-transform">
-              <Droplets className="w-6 h-6" />
+      {/* The 5 Physical Sensor Telemetry Gauges / Cards in Glassmorphism */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-5">
+        {/* Metric 1: Soil Moisture Level (GPIO 35) */}
+        <div className="relative glass-panel rounded-3xl p-5 shadow-xl border border-white overflow-hidden hover:-translate-y-1 transition-all group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-11 h-11 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-105 transition-transform">
+              <Droplets className="w-5 h-5" />
             </div>
             <span
-              className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase border ${
+              className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase border ${
                 telemetryData.soilMoisture < 35
                   ? 'bg-rose-100 text-rose-800 border-rose-300'
                   : telemetryData.soilMoisture > 75
@@ -251,41 +257,47 @@ export default function IotDashboard({
             </span>
           </div>
 
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-              {t.soilMoisture}
-            </span>
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                {t.soilMoisture}
+              </span>
+              <span className="text-[10px] font-mono text-slate-400 font-bold">GPIO 35</span>
+            </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-black text-slate-900 tracking-tight">
+              <span className="text-3xl font-black text-slate-900 tracking-tight">
                 {esp32Status === 'offline' ? '--' : `${telemetryData.soilMoisture}%`}
               </span>
-              <span className="text-xs text-slate-400 font-semibold">{t.volumetricWater}</span>
+              <span className="text-[11px] text-slate-400 font-semibold">{t.volumetricWater}</span>
             </div>
+            <span className="text-[10px] text-slate-500 font-mono block">
+              Raw ADC: {telemetryData.soilAdc || Math.round(3200 - (telemetryData.soilMoisture / 100) * 2000)}
+            </span>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100">
+          <div className="mt-3 pt-2.5 border-t border-slate-100">
             <div className="w-full bg-slate-200/70 rounded-full h-2 overflow-hidden">
               <div
                 className="bg-blue-500 h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(telemetryData.soilMoisture, 100)}%` }}
               ></div>
             </div>
-            <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1">
-              <span>0%</span>
+            <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
+              <span>0% Dry</span>
               <span>40-75%</span>
-              <span>100%</span>
+              <span>100% Wet</span>
             </div>
           </div>
         </div>
 
-        {/* Metric 2: Ambient Humidity Level */}
-        <div className="relative glass-panel rounded-3xl p-6 shadow-xl border border-white overflow-hidden hover:-translate-y-1 transition-all group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-cyan-100 flex items-center justify-center text-cyan-600 group-hover:scale-105 transition-transform">
-              <CloudRain className="w-6 h-6" />
+        {/* Metric 2: Ambient Humidity Level (DHT22 - GPIO 4) */}
+        <div className="relative glass-panel rounded-3xl p-5 shadow-xl border border-white overflow-hidden hover:-translate-y-1 transition-all group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-11 h-11 rounded-2xl bg-cyan-100 flex items-center justify-center text-cyan-600 group-hover:scale-105 transition-transform">
+              <CloudRain className="w-5 h-5" />
             </div>
             <span
-              className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase border ${
+              className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase border ${
                 telemetryData.humidity > 80
                   ? 'bg-amber-100 text-amber-800 border-amber-300'
                   : 'bg-emerald-100 text-emerald-800 border-emerald-300'
@@ -295,41 +307,47 @@ export default function IotDashboard({
             </span>
           </div>
 
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-              {t.humidity}
-            </span>
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                {t.humidity}
+              </span>
+              <span className="text-[10px] font-mono text-slate-400 font-bold">GPIO 4</span>
+            </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-black text-slate-900 tracking-tight">
+              <span className="text-3xl font-black text-slate-900 tracking-tight">
                 {esp32Status === 'offline' ? '--' : `${telemetryData.humidity}%`}
               </span>
-              <span className="text-xs text-slate-400 font-semibold">{t.relativeHumidity}</span>
+              <span className="text-[11px] text-slate-400 font-semibold">{t.relativeHumidity}</span>
             </div>
+            <span className="text-[10px] text-slate-500 font-mono block">
+              Dew Point: ~{(telemetryData.temperature - ((100 - telemetryData.humidity) / 5)).toFixed(1)}°C
+            </span>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100">
+          <div className="mt-3 pt-2.5 border-t border-slate-100">
             <div className="w-full bg-slate-200/70 rounded-full h-2 overflow-hidden">
               <div
                 className="bg-cyan-500 h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(telemetryData.humidity, 100)}%` }}
               ></div>
             </div>
-            <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1">
-              <span>20%</span>
-              <span>Dew: 21°C</span>
+            <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
+              <span>20% Low</span>
+              <span>55-75% Opt</span>
               <span>100%</span>
             </div>
           </div>
         </div>
 
-        {/* Metric 3: Field Temperature Level */}
-        <div className="relative glass-panel rounded-3xl p-6 shadow-xl border border-white overflow-hidden hover:-translate-y-1 transition-all group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600 group-hover:scale-105 transition-transform">
-              <Thermometer className="w-6 h-6" />
+        {/* Metric 3: Field / Air Temperature Level (DHT22 - GPIO 4) */}
+        <div className="relative glass-panel rounded-3xl p-5 shadow-xl border border-white overflow-hidden hover:-translate-y-1 transition-all group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-11 h-11 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600 group-hover:scale-105 transition-transform">
+              <Thermometer className="w-5 h-5" />
             </div>
             <span
-              className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase border ${
+              className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase border ${
                 telemetryData.temperature > 34
                   ? 'bg-rose-100 text-rose-800 border-rose-300'
                   : 'bg-emerald-100 text-emerald-800 border-emerald-300'
@@ -339,28 +357,34 @@ export default function IotDashboard({
             </span>
           </div>
 
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-              {t.temperature}
-            </span>
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Air Temperature
+              </span>
+              <span className="text-[10px] font-mono text-slate-400 font-bold">DHT22</span>
+            </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-black text-slate-900 tracking-tight">
+              <span className="text-3xl font-black text-slate-900 tracking-tight">
                 {esp32Status === 'offline' ? '--' : `${telemetryData.temperature}°C`}
               </span>
-              <span className="text-xs text-slate-400 font-semibold">
+              <span className="text-[11px] text-slate-400 font-semibold">
                 ({((telemetryData.temperature * 9) / 5 + 32).toFixed(1)}°F)
               </span>
             </div>
+            <span className="text-[10px] text-slate-500 font-mono block">
+              Diurnal Delta: ±3.5°C
+            </span>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100">
+          <div className="mt-3 pt-2.5 border-t border-slate-100">
             <div className="w-full bg-slate-200/70 rounded-full h-2 overflow-hidden">
               <div
                 className="bg-amber-500 h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.min((telemetryData.temperature / 45) * 100, 100)}%` }}
               ></div>
             </div>
-            <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1">
+            <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
               <span>10°C</span>
               <span>24–30°C</span>
               <span>45°C</span>
@@ -368,40 +392,92 @@ export default function IotDashboard({
           </div>
         </div>
 
-        {/* Metric 4: Solid Dissolves in Water Level (TDS) */}
-        <div className="relative glass-panel rounded-3xl p-6 shadow-xl border border-white overflow-hidden hover:-translate-y-1 transition-all group">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-600 group-hover:scale-105 transition-transform">
-              <Waves className="w-6 h-6" />
+        {/* Metric 4: Water Temperature (DS18B20 - GPIO 27) */}
+        <div className="relative glass-panel rounded-3xl p-5 shadow-xl border border-white overflow-hidden hover:-translate-y-1 transition-all group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-11 h-11 rounded-2xl bg-sky-100 flex items-center justify-center text-sky-600 group-hover:scale-105 transition-transform">
+              <Thermometer className="w-5 h-5 text-sky-600" />
             </div>
-            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase border ${tdsInfo.color}`}>
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-full uppercase border bg-sky-100 text-sky-800 border-sky-300">
+              DS18B20 PROBE
+            </span>
+          </div>
+
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Water Temperature
+              </span>
+              <span className="text-[10px] font-mono text-slate-400 font-bold">GPIO 27</span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-slate-900 tracking-tight">
+                {esp32Status === 'offline' ? '--' : `${telemetryData.waterTemperature ?? 24.8}°C`}
+              </span>
+              <span className="text-[11px] text-slate-400 font-semibold">
+                ({((((telemetryData.waterTemperature ?? 24.8) * 9) / 5) + 32).toFixed(1)}°F)
+              </span>
+            </div>
+            <span className="text-[10px] text-emerald-600 font-bold block">
+              ✓ TDS Temp Compensated
+            </span>
+          </div>
+
+          <div className="mt-3 pt-2.5 border-t border-slate-100">
+            <div className="w-full bg-slate-200/70 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-sky-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(((telemetryData.waterTemperature ?? 24.8) / 40) * 100, 100)}%` }}
+              ></div>
+            </div>
+            <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
+              <span>5°C Cold</span>
+              <span>20–26°C Opt</span>
+              <span>40°C</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Metric 5: Solid Dissolves in Water Level (TDS V1.0 - GPIO 34) */}
+        <div className="relative glass-panel rounded-3xl p-5 shadow-xl border border-white overflow-hidden hover:-translate-y-1 transition-all group">
+          <div className="flex items-center justify-between mb-3">
+            <div className="w-11 h-11 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-600 group-hover:scale-105 transition-transform">
+              <Waves className="w-5 h-5" />
+            </div>
+            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase border ${tdsInfo.color}`}>
               {tdsInfo.label}
             </span>
           </div>
 
-          <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-              {t.tdsWater}
-            </span>
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                {t.tdsWater}
+              </span>
+              <span className="text-[10px] font-mono text-slate-400 font-bold">GPIO 34</span>
+            </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-black text-slate-900 tracking-tight">
+              <span className="text-3xl font-black text-slate-900 tracking-tight">
                 {esp32Status === 'offline' ? '--' : `${telemetryData.tdsLevel}`}
               </span>
-              <span className="text-xs text-slate-400 font-semibold">ppm (mg/L)</span>
+              <span className="text-[11px] text-slate-400 font-semibold">ppm</span>
             </div>
+            <span className="text-[10px] text-slate-500 font-mono block">
+              EC: {telemetryData.ec || ((telemetryData.tdsLevel * 2) / 1000).toFixed(3)} mS/cm
+            </span>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100">
+          <div className="mt-3 pt-2.5 border-t border-slate-100">
             <div className="w-full bg-slate-200/70 rounded-full h-2 overflow-hidden">
               <div
                 className="bg-teal-500 h-full rounded-full transition-all duration-500"
                 style={{ width: `${Math.min((telemetryData.tdsLevel / 1000) * 100, 100)}%` }}
               ></div>
             </div>
-            <div className="flex justify-between text-[10px] text-slate-400 font-bold mt-1">
+            <div className="flex justify-between text-[9px] text-slate-400 font-bold mt-1">
               <span>0 ppm</span>
               <span>300-600</span>
-              <span>1200</span>
+              <span>1200+</span>
             </div>
           </div>
         </div>
@@ -520,8 +596,16 @@ export default function IotDashboard({
               <Line
                 type="monotone"
                 dataKey="temperature"
-                name={`${t.temperature} (°C)`}
+                name="Air Temp (°C)"
                 stroke="#f59e0b"
+                strokeWidth={2}
+                dot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="water_temp"
+                name="Water Temp (°C)"
+                stroke="#0ea5e9"
                 strokeWidth={2}
                 dot={false}
               />
@@ -538,30 +622,55 @@ export default function IotDashboard({
         </div>
       </div>
 
-      {/* Hardware Ingestion Guide */}
-      <div className="glass-panel-dark text-slate-100 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-4 border border-white/20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      {/* Hardware Ingestion & Wiring Guide */}
+      <div className="glass-panel-dark text-slate-100 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5 border border-white/20">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
             <Cpu className="w-5 h-5 text-emerald-400" />
-            <h3 className="text-base font-black text-white">{t.connectPhysicalHw}</h3>
+            <h3 className="text-lg font-black text-white">ESP32 Hardware Wiring & Telemetry Guide</h3>
           </div>
-          <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-lg border border-emerald-800">
-            HTTP POST Ingest
+          <span className="text-xs font-mono font-bold text-emerald-300 bg-emerald-950/90 px-3 py-1 rounded-xl border border-emerald-700/60 w-fit">
+            HTTP POST Ingest • 115200 Baud
           </span>
         </div>
 
         <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-          {t.connectHwDesc}
+          Flash your ESP32 board using the <span className="text-emerald-400 font-mono font-bold">esp32_firmware/agri_care_esp32.ino</span> sketch. The microcontroller connects to your 2.4GHz Wi-Fi and dispatches JSON telemetry packets every 3 seconds directly to this dashboard.
         </p>
 
-        <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 font-mono text-xs overflow-x-auto text-emerald-300 space-y-1">
-          <div className="text-slate-400">// Sample HTTP POST Payload Sent by ESP32:</div>
-          <div>
-            curl -X POST http://192.168.1.6:5173/api/telemetry \
-            <br />
-            &nbsp;&nbsp;-H "Content-Type: application/json" \
-            <br />
-            &nbsp;&nbsp;-d '{`{"device_id":"ESP32-AGRI-01","moisture":64.5,"humidity":72.0,"temperature":28.4,"tds":385,"valve":false}`}'
+        {/* Pinout Architecture Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+          <div className="p-3 bg-white/5 rounded-2xl border border-white/10">
+            <span className="text-slate-400 font-bold block mb-1">DHT22 (Air Temp & RH)</span>
+            <span className="text-emerald-400 font-mono font-black text-sm">GPIO 4</span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">VCC 3.3V • DATA • GND</span>
+          </div>
+          <div className="p-3 bg-white/5 rounded-2xl border border-white/10">
+            <span className="text-slate-400 font-bold block mb-1">DS18B20 (Water Temp)</span>
+            <span className="text-sky-400 font-mono font-black text-sm">GPIO 27</span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">4.7kΩ Resistor to 3.3V</span>
+          </div>
+          <div className="p-3 bg-white/5 rounded-2xl border border-white/10">
+            <span className="text-slate-400 font-bold block mb-1">TDS V1.0 (Solids Probe)</span>
+            <span className="text-teal-400 font-mono font-black text-sm">GPIO 34</span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">Analog ADC1 • 0-3.3V</span>
+          </div>
+          <div className="p-3 bg-white/5 rounded-2xl border border-white/10">
+            <span className="text-slate-400 font-bold block mb-1">Soil Moisture Sensor</span>
+            <span className="text-blue-400 font-mono font-black text-sm">GPIO 35</span>
+            <span className="text-[10px] text-slate-400 block mt-0.5">Analog ADC1 • 3200-1200</span>
+          </div>
+        </div>
+
+        {/* Server Endpoint Code Box */}
+        <div className="bg-slate-950/90 rounded-2xl p-4 border border-slate-800 font-mono text-xs overflow-x-auto text-emerald-300 space-y-1.5 shadow-inner">
+          <div className="text-slate-400">// In agri_care_esp32.ino, set your PC's IP address:</div>
+          <div className="text-amber-300">
+            const char* SERVER_URL = "http://&lt;YOUR_PC_IP&gt;:5000/api/telemetry";
+          </div>
+          <div className="text-slate-400 pt-1">// Test telemetry ingestion from PowerShell / Terminal:</div>
+          <div className="text-slate-200">
+            curl -X POST http://localhost:5000/api/telemetry -H "Content-Type: application/json" -d '&#123;"device_id":"ESP32-NODE","air_temperature":28.4,"water_temperature":24.5,"humidity":72.0,"soil_moisture":65.0,"tds_ppm":385&#125;'
           </div>
         </div>
       </div>

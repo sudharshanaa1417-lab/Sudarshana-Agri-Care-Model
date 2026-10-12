@@ -1,244 +1,350 @@
 /*
- * =========================================================================================
- * Sudharshana Agri_Care Model — ESP32 Real-Time Agricultural Field Sensor Firmware
- * =========================================================================================
- * 
- * Hardware Architecture:
- * - ESP32 WROOM-32D Development Board (2.4GHz Wi-Fi + Bluetooth BLE)
- * - Capacitive Soil Moisture Sensor v1.2 (Analog ADC GPIO 34)
- * - DHT22 / DHT11 Ambient Temperature & Relative Humidity Sensor (GPIO 4)
- * - Gravity Analog TDS Sensor Probe (Solid Dissolves in Water) (Analog ADC GPIO 35)
- * - 5V Active Relay Module for Automated Solenoid Irrigation Drip Valve (GPIO 26)
- * - Onboard Status LED Indicator (GPIO 2)
- *
- * Operational Logic:
- * 1. Connects to agricultural 2.4GHz Wi-Fi network.
- * 2. Continuously reads Soil Moisture (%), Air Humidity (%), Ambient Temp (°C), and TDS (ppm).
- * 3. Evaluates local safety threshold: If Soil Moisture < 35%, automatically triggers drip relay.
- * 4. Transmits formatted JSON telemetry payload every 5000ms (5 seconds) to backend / web app.
- * =========================================================================================
- */
+  =========================================================================================
+  🌾 Sudharshana Agri_Care Model — ESP32 Real-Time Agricultural Sensor Firmware
+  =========================================================================================
+
+  HARDWARE CONNECTIONS (Exact User Specification):
+  ------------------------------------------------
+  1. DHT22 (Air Temperature & Humidity):
+     - VCC  -> 3.3V (or 5V depending on breakout module)
+     - DATA -> GPIO 4
+     - GND  -> GND
+
+  2. DS18B20 (Water Temperature / Probe):
+     - VCC  -> 3.3V
+     - DATA -> GPIO 27 (Requires 4.7kΩ pull-up resistor between DATA and 3.3V)
+     - GND  -> GND
+
+  3. TDS V1.0 (Total Dissolved Solids in Water):
+     - VCC  -> 3.3V / 5V
+     - Analog Output (AOUT) -> GPIO 34 (ADC1)
+     - GND  -> GND
+
+  4. Soil Moisture Sensor (Analog Capacitive / Resistive):
+     - VCC  -> 3.3V
+     - Analog Output (AOUT) -> GPIO 35 (ADC1)
+     - GND  -> GND
+
+  5. Status LED:
+     - Built-in Blue LED -> GPIO 2
+
+  REQUIRED ARDUINO IDE LIBRARIES:
+  -------------------------------
+  Install via Arduino IDE -> Sketch -> Include Library -> Manage Libraries:
+  1. "DHT sensor library" by Adafruit (plus Adafruit Unified Sensor dependency)
+  2. "OneWire" by Paul Stoffregen
+  3. "DallasTemperature" by Miles Burton
+  =========================================================================================
+*/
 
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <ArduinoJson.h>
-#include "DHT.h"
+#include <DHT.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
-// ----------------------------------------------------
-// 1. Wi-Fi & Web Application Telemetry Configuration
-// ----------------------------------------------------
-const char* WIFI_SSID     = "Kisan-Farm-Network-5G";      // Replace with your Wi-Fi SSID
-const char* WIFI_PASSWORD = "kisan_secure_password";      // Replace with your Wi-Fi Password
+// =========================================================================================
+// 1. WI-FI & WEB SERVER CONFIGURATION
+// =========================================================================================
+// Replace with your 2.4GHz Wi-Fi router or Mobile Hotspot credentials:
+const char* WIFI_SSID     = "Kisan-Farm-Network-5G";      // Enter your Wi-Fi SSID
+const char* WIFI_PASSWORD = "kisan_secure_password";      // Enter your Wi-Fi Password
 
-// URL to Sudharshana Agri_Care Web Endpoint (Replace with your Laptop LAN IP e.g. 192.168.1.6 or Vercel API)
-const char* SERVER_INGEST_URL = "http://192.168.1.6:5173/api/telemetry";
+// Web Server Telemetry Endpoint:
+// When running server.py on your PC, find your PC's IP using 'ipconfig' (e.g. 192.168.1.6 or 10.10.9.36)
+// Port 5000 is the AgriCare Flask backend server:
+const char* SERVER_URL    = "http://10.10.9.36:5000/api/telemetry";
 
-const char* DEVICE_ID = "ESP32-AGRI-CARE-NODE-01";
-const unsigned long TELEMETRY_INTERVAL_MS = 5000; // 5 seconds interval
+// Telemetry dispatch interval (milliseconds)
+const unsigned long TELEMETRY_INTERVAL_MS = 3000; // Send telemetry every 3 seconds
 
-// ----------------------------------------------------
-// 2. Hardware Pin Assignments
-// ----------------------------------------------------
-#define DHTPIN 4               // DHT22 Data Pin connected to GPIO 4
-#define DHTTYPE DHT22          // Sensor model: DHT22 (AM2302) or DHT11
-#define MOISTURE_PIN 34        // Capacitive Soil Moisture Analog Out -> ADC1_CH6 (GPIO 34)
-#define TDS_PIN 35             // Analog TDS Water Probe -> ADC1_CH7 (GPIO 35)
-#define RELAY_VALVE_PIN 26     // Solenoid Valve 5V Relay Control -> GPIO 26
-#define STATUS_LED_PIN 2       // Onboard Blue Status LED -> GPIO 2
+// Node Identifier
+const char* DEVICE_ID     = "ESP32-SUDHARSHANA-NODE";
 
-// ----------------------------------------------------
-// 3. Sensor Calibration Constants
-// ----------------------------------------------------
-// Capacitive Moisture Sensor Calibration (Raw ADC 0 - 4095)
-const int MOISTURE_AIR_RAW   = 3200; // Sensor completely dry in air (~0% moisture)
-const int MOISTURE_WATER_RAW = 1450; // Sensor submerged in water (~100% moisture)
+// =========================================================================================
+// 2. PIN DEFINITIONS
+// =========================================================================================
+#define DHT_PIN       4       // DHT22 Data -> GPIO 4
+#define DHT_TYPE      DHT22   // Sensor Model DHT22
 
-// Analog TDS Sensor Calibration (3.3V reference)
-#define VREF 3.3
-#define TDS_CALIBRATION_FACTOR 0.5 // Standard gravity TDS coefficient
+#define DS18B20_PIN   27      // DS18B20 OneWire Data -> GPIO 27
 
-DHT dht(DHTPIN, DHTTYPE);
-unsigned long lastTelemetryTime = 0;
-bool isValveOpen = false;
+#define TDS_PIN       34      // TDS Analog Out -> GPIO 34 (ADC1_CH6)
 
-// ----------------------------------------------------
-// Setup Routine
-// ----------------------------------------------------
+#define SOIL_PIN      35      // Soil Moisture Analog Out -> GPIO 35 (ADC1_CH7)
+
+#define STATUS_LED    2       // Onboard LED -> GPIO 2
+
+// =========================================================================================
+// 3. CALIBRATION CONSTANTS
+// =========================================================================================
+#define ADC_RESOLUTION 4095.0
+#define ADC_VOLTAGE    3.3
+
+// Soil moisture calibration values
+// Dry soil (in air)    -> High ADC value (~3200)
+// Wet soil (in water)  -> Low ADC value  (~1200)
+#define SOIL_DRY 3200
+#define SOIL_WET 1200
+
+// Number of analog samples for filtering noise
+#define SAMPLE_COUNT 30
+
+// =========================================================================================
+// 4. OBJECT INSTANTIATIONS
+// =========================================================================================
+DHT dht(DHT_PIN, DHT_TYPE);
+OneWire oneWire(DS18B20_PIN);
+DallasTemperature waterTempSensor(&oneWire);
+
+// =========================================================================================
+// 5. GLOBAL SENSOR VARIABLES
+// =========================================================================================
+float airTemperature   = 25.0;
+float humidity         = 60.0;
+float waterTemperature = 25.0;
+float tdsValue         = 0.0;
+float ecValue          = 0.0;
+float tdsVoltage       = 0.0;
+float soilADC          = 0.0;
+float soilMoisture     = 0.0;
+
+unsigned long lastSendTime = 0;
+
+// Function prototypes
+void connectToWiFi();
+void readSensors();
+void sendTelemetryHttp();
+
+// =========================================================================================
+// SETUP
+// =========================================================================================
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  
-  Serial.println("\n=======================================================");
-  Serial.println("  Sudharshana Agri_Care Model — ESP32 Sensor Node v2.0  ");
-  Serial.println("=======================================================");
+
+  Serial.println();
+  Serial.println("================================================================");
+  Serial.println("🌾 SUDHARSHANA AGRI_CARE MODEL — ESP32 FIELD NODE INITIALIZING");
+  Serial.println("================================================================");
 
   // Initialize GPIO Pins
-  pinMode(MOISTURE_PIN, INPUT);
+  pinMode(STATUS_LED, OUTPUT);
   pinMode(TDS_PIN, INPUT);
-  pinMode(RELAY_VALVE_PIN, OUTPUT);
-  pinMode(STATUS_LED_PIN, OUTPUT);
+  pinMode(SOIL_PIN, INPUT);
 
-  // Default Relay State: OFF (Active LOW or Active HIGH depending on relay module)
-  digitalWrite(RELAY_VALVE_PIN, LOW);
-  digitalWrite(STATUS_LED_PIN, LOW);
+  // Configure ESP32 ADC Resolution to 12-bit (0 - 4095)
+  analogReadResolution(12);
 
-  // Initialize DHT Sensor
+  // Initialize DHT22
   dht.begin();
-  Serial.println("[AgriCare] DHT22 Temperature & Humidity Sensor initialized.");
+  Serial.println("[OK] DHT22 Air Temperature & Humidity initialized on GPIO 4");
 
-  // Connect to Local Wi-Fi
-  connectWiFi();
+  // Initialize DS18B20
+  waterTempSensor.begin();
+  int dsCount = waterTempSensor.getDeviceCount();
+  Serial.printf("[OK] DS18B20 Water Temperature initialized on GPIO 27 (Found: %d sensor)\n", dsCount);
+
+  Serial.println("[OK] TDS V1.0 Sensor configured on GPIO 34");
+  Serial.println("[OK] Soil Moisture Sensor configured on GPIO 35");
+
+  // Connect to Wi-Fi
+  connectToWiFi();
 }
 
-// ----------------------------------------------------
-// Main Loop
-// ----------------------------------------------------
+// =========================================================================================
+// MAIN LOOP
+// =========================================================================================
 void loop() {
-  // Verify Wi-Fi connectivity and auto-reconnect if dropped
+  // Check Wi-Fi connection and auto-reconnect if dropped
   if (WiFi.status() != WL_CONNECTED) {
-    digitalWrite(STATUS_LED_PIN, LOW);
-    connectWiFi();
+    digitalWrite(STATUS_LED, LOW);
+    connectToWiFi();
   }
 
-  // Periodic Telemetry Dispatch
-  if (millis() - lastTelemetryTime >= TELEMETRY_INTERVAL_MS) {
-    lastTelemetryTime = millis();
-    
-    // 1. Read Soil Moisture (%)
-    float soilMoisturePct = readSoilMoisture();
+  // Periodic Telemetry Acquisition & Transmission
+  if (millis() - lastSendTime >= TELEMETRY_INTERVAL_MS) {
+    lastSendTime = millis();
 
-    // 2. Read Ambient Temperature (°C) and Humidity (%)
-    float tempC = dht.readTemperature();
-    float humidityRH = dht.readHumidity();
+    // 1. Read all physical sensors
+    readSensors();
 
-    // Fallback if DHT read hiccups
-    if (isnan(tempC) || isnan(humidityRH)) {
-      Serial.println("[AgriCare Warning] Failed to read from DHT22, applying smoothing fallback.");
-      tempC = 28.2;
-      humidityRH = 70.5;
-    }
+    // 2. Print readable telemetry to Serial Monitor
+    Serial.println("----------------------------------------------------------------");
+    Serial.printf("[TELEMETRY] Air Temp: %.1f °C | Humidity: %.1f %% RH\n", airTemperature, humidity);
+    Serial.printf("[TELEMETRY] Water Temp: %.1f °C (DS18B20)\n", waterTemperature);
+    Serial.printf("[TELEMETRY] Soil Moisture: %.1f %% (ADC: %.0f)\n", soilMoisture, soilADC);
+    Serial.printf("[TELEMETRY] Water TDS: %.1f ppm | EC: %.3f ms/cm | Voltage: %.2f V\n", tdsValue, ecValue, tdsVoltage);
+    Serial.printf("[TELEMETRY] Wi-Fi RSSI: %d dBm | Server: %s\n", WiFi.RSSI(), SERVER_URL);
 
-    // 3. Read Total Dissolved Solids in Water (TDS ppm)
-    float tdsPpm = readTdsLevel(tempC);
-
-    // 4. Closed-Loop Autonomous Irrigation Logic
-    // If soil moisture drops below 35%, open solenoid valve; close when reached 65%
-    if (soilMoisturePct < 35.0 && !isValveOpen) {
-      isValveOpen = true;
-      digitalWrite(RELAY_VALVE_PIN, HIGH);
-      Serial.println("[AgriCare Auto] Soil Dry (<35%) -> Solenoid Irrigation Valve OPENED!");
-    } else if (soilMoisturePct >= 65.0 && isValveOpen) {
-      isValveOpen = false;
-      digitalWrite(RELAY_VALVE_PIN, LOW);
-      Serial.println("[AgriCare Auto] Optimal Moisture (>=65%) -> Solenoid Valve CLOSED.");
-    }
-
-    // 5. Output to Local Serial Monitor
-    Serial.printf("[AgriCare Telemetry] Moisture: %.1f%% | Humidity: %.1f%% | Temp: %.1f°C | TDS: %.0f ppm | Valve: %s\n",
-                  soilMoisturePct, humidityRH, tempC, tdsPpm, isValveOpen ? "ON" : "OFF");
-
-    // 6. Transmit JSON Telemetry over Wi-Fi
-    sendTelemetryPayload(soilMoisturePct, humidityRH, tempC, tdsPpm, isValveOpen);
+    // 3. Dispatch JSON payload via HTTP POST
+    sendTelemetryHttp();
   }
 }
 
-// ----------------------------------------------------
-// Wi-Fi Connection Helper
-// ----------------------------------------------------
-void connectWiFi() {
-  Serial.printf("[AgriCare] Connecting to Wi-Fi SSID: %s\n", WIFI_SSID);
+// =========================================================================================
+// WI-FI CONNECTION HANDLER
+// =========================================================================================
+void connectToWiFi() {
+  Serial.println();
+  Serial.printf("[Wi-Fi] Connecting to SSID: %s\n", WIFI_SSID);
+
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 25) {
-    delay(400);
-    digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN)); // Flash LED during connect
+  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+    delay(300);
+    // Blink LED to indicate connection attempt
+    digitalWrite(STATUS_LED, !digitalRead(STATUS_LED));
     Serial.print(".");
     attempts++;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    digitalWrite(STATUS_LED_PIN, HIGH); // Solid LED when online
-    Serial.println("\n[AgriCare] Wi-Fi Connected Successfully!");
-    Serial.print("[AgriCare] IP Address: ");
+    digitalWrite(STATUS_LED, HIGH); // Solid ON when connected
+    Serial.println();
+    Serial.println("[Wi-Fi] Connected Successfully!");
+    Serial.print("[Wi-Fi] ESP32 Assigned IP: ");
     Serial.println(WiFi.localIP());
-    Serial.print("[AgriCare] RSSI Signal: ");
-    Serial.printf("%d dBm\n", WiFi.RSSI());
+    Serial.printf("[Wi-Fi] Signal Strength (RSSI): %d dBm\n", WiFi.RSSI());
+    Serial.println("================================================================");
   } else {
-    Serial.println("\n[AgriCare Warning] Wi-Fi Connection Timeout. Retrying in next cycle...");
+    Serial.println();
+    Serial.println("[Wi-Fi Warning] Connection timed out. Will retry in next loop.");
   }
 }
 
-// ----------------------------------------------------
-// Capacitive Soil Moisture Reader
-// ----------------------------------------------------
-float readSoilMoisture() {
-  // Take 10 sample moving average to filter out ADC noise
-  long sum = 0;
-  for (int i = 0; i < 10; i++) {
-    sum += analogRead(MOISTURE_PIN);
-    delay(5);
+// =========================================================================================
+// SENSOR READING & COMPENSATION LOGIC
+// =========================================================================================
+void readSensors() {
+  // ----------------------------------------------------
+  // 1. Read DHT22 (Air Temp & Relative Humidity)
+  // ----------------------------------------------------
+  float t = dht.readTemperature();
+  float h = dht.readHumidity();
+
+  if (!isnan(t) && !isnan(h)) {
+    airTemperature = t;
+    humidity = h;
+  } else {
+    Serial.println("[Sensor Warning] DHT22 read failure, retaining previous values.");
   }
-  int rawAvg = sum / 10;
 
-  // Map raw ADC between calibrated AIR and WATER bounds
-  float pct = map(rawAvg, MOISTURE_AIR_RAW, MOISTURE_WATER_RAW, 0, 100);
-  return constrain(pct, 0.0, 100.0);
-}
+  // ----------------------------------------------------
+  // 2. Read DS18B20 (Water Temperature)
+  // ----------------------------------------------------
+  waterTempSensor.requestTemperatures();
+  float wt = waterTempSensor.getTempCByIndex(0);
 
-// ----------------------------------------------------
-// Analog TDS (Solid Dissolves in Water) Reader
-// ----------------------------------------------------
-float readTdsLevel(float temperature) {
-  long sum = 0;
-  for (int i = 0; i < 10; i++) {
-    sum += analogRead(TDS_PIN);
-    delay(5);
+  if (wt != DEVICE_DISCONNECTED_C && wt > -50.0 && wt < 100.0) {
+    waterTemperature = wt;
+  } else {
+    // If DS18B20 probe is disconnected or floating, fallback to air temp or 25.0C
+    waterTemperature = (airTemperature > 0) ? airTemperature : 25.0;
   }
-  int rawAvg = sum / 10;
 
-  float voltage = (rawAvg / 4095.0) * VREF;
+  // ----------------------------------------------------
+  // 3. Read TDS Sensor (GPIO 34) with Multi-sample Averaging
+  // ----------------------------------------------------
+  long tdsSum = 0;
+  for (int i = 0; i < SAMPLE_COUNT; i++) {
+    tdsSum += analogRead(TDS_PIN);
+    delay(2);
+  }
+  float adcAverage = (float)tdsSum / (float)SAMPLE_COUNT;
+  tdsVoltage = (adcAverage / ADC_RESOLUTION) * ADC_VOLTAGE;
+
+  // Temperature compensation formula using DS18B20 water temperature
+  float compensationCoefficient = 1.0 + 0.02 * (waterTemperature - 25.0);
+  float compensatedVoltage = tdsVoltage / compensationCoefficient;
+
+  // Electrical Conductivity (EC) formula
+  ecValue = (133.42 * compensatedVoltage * compensatedVoltage * compensatedVoltage
+             - 255.86 * compensatedVoltage * compensatedVoltage
+             + 857.39 * compensatedVoltage);
   
-  // Temperature compensation formula for water conductivity
-  float compensationCoefficient = 1.0 + 0.02 * (temperature - 25.0);
-  float compensationVoltage = voltage / compensationCoefficient;
+  if (ecValue < 0.0) ecValue = 0.0;
 
-  // Polynomial mapping from voltage to TDS ppm
-  float tdsValue = (133.42 * compensationVoltage * compensationVoltage * compensationVoltage
-                    - 255.86 * compensationVoltage * compensationVoltage
-                    + 857.39 * compensationVoltage) * TDS_CALIBRATION_FACTOR;
+  // TDS in ppm (parts per million) = EC * conversion factor (0.5)
+  tdsValue = ecValue * 0.5;
 
-  return max(0.0f, tdsValue);
+  // ----------------------------------------------------
+  // 4. Read Soil Moisture Sensor (GPIO 35) with Averaging
+  // ----------------------------------------------------
+  long soilSum = 0;
+  for (int i = 0; i < SAMPLE_COUNT; i++) {
+    soilSum += analogRead(SOIL_PIN);
+    delay(2);
+  }
+  soilADC = (float)soilSum / (float)SAMPLE_COUNT;
+
+  // Map ADC values: SOIL_DRY (3200) -> 0%, SOIL_WET (1200) -> 100%
+  soilMoisture = map(soilADC, SOIL_DRY, SOIL_WET, 0, 100);
+  soilMoisture = constrain(soilMoisture, 0, 100);
 }
 
-// ----------------------------------------------------
-// HTTP POST Telemetry Dispatcher
-// ----------------------------------------------------
-void sendTelemetryPayload(float moisture, float humidity, float temp, float tds, bool valveState) {
-  if (WiFi.status() != WL_CONNECTED) return;
+// =========================================================================================
+// HTTP POST JSON DISPATCHER
+// =========================================================================================
+void sendTelemetryHttp() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[HTTP Error] Cannot send telemetry: Wi-Fi Disconnected.");
+    return;
+  }
 
   HTTPClient http;
-  http.begin(SERVER_INGEST_URL);
+  http.begin(SERVER_URL);
   http.addHeader("Content-Type", "application/json");
+  http.setTimeout(2500); // 2.5 second timeout
 
-  // Format JSON Document
-  StaticJsonDocument<256> doc;
-  doc["device_id"]   = DEVICE_ID;
-  doc["moisture"]    = moisture;
-  doc["humidity"]    = humidity;
-  doc["temperature"] = temp;
-  doc["tds"]         = tds;
-  doc["valve_open"]  = valveState;
-  doc["rssi"]        = WiFi.RSSI();
+  // Build JSON string cleanly without external library dependency
+  char jsonBuffer[384];
+  snprintf(jsonBuffer, sizeof(jsonBuffer),
+    "{"
+    "\"device_id\":\"%s\","
+    "\"air_temperature\":%.2f,"
+    "\"temperature\":%.2f,"
+    "\"water_temperature\":%.2f,"
+    "\"humidity\":%.2f,"
+    "\"soil_moisture\":%.1f,"
+    "\"soil_adc\":%.0f,"
+    "\"tds_ppm\":%.1f,"
+    "\"tds\":%.1f,"
+    "\"ec\":%.3f,"
+    "\"voltage\":%.2f,"
+    "\"rssi\":%d"
+    "}",
+    DEVICE_ID,
+    airTemperature,
+    airTemperature,
+    waterTemperature,
+    humidity,
+    soilMoisture,
+    soilADC,
+    tdsValue,
+    tdsValue,
+    ecValue,
+    tdsVoltage,
+    WiFi.RSSI()
+  );
 
-  String requestBody;
-  serializeJson(doc, requestBody);
+  int httpCode = http.POST((uint8_t*)jsonBuffer, strlen(jsonBuffer));
 
-  int httpResponseCode = http.POST(requestBody);
-  if (httpResponseCode > 0) {
-    Serial.printf("[AgriCare Cloud] Telemetry Delivered! HTTP Status: %d\n", httpResponseCode);
+  if (httpCode > 0) {
+    if (httpCode == HTTP_CODE_OK || httpCode == 201) {
+      Serial.printf("[AgriCare Cloud] Telemetry Broadcast SUCCESS! (HTTP %d)\n", httpCode);
+      // Quick LED blink on successful transmission
+      digitalWrite(STATUS_LED, LOW);
+      delay(40);
+      digitalWrite(STATUS_LED, HIGH);
+    } else {
+      Serial.printf("[AgriCare Cloud] Server responded with HTTP Code: %d\n", httpCode);
+    }
   } else {
-    Serial.printf("[AgriCare Cloud Error] HTTP POST failed: %s\n", http.errorToString(httpResponseCode).c_str());
+    Serial.printf("[AgriCare Cloud Error] HTTP POST failed: %s\n", http.errorToString(httpCode).c_str());
+    Serial.println("[Tip] Ensure 'server.py' is running on your PC and your PC Firewall permits port 5000.");
   }
 
   http.end();
