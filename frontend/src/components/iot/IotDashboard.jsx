@@ -15,7 +15,8 @@ import {
   Pause,
   Download,
   Settings2,
-  Cpu
+  Cpu,
+  Globe
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -36,7 +37,9 @@ export default function IotDashboard({
   telemetryData,
   setTelemetryData,
   telemetryHistory,
-  setTelemetryHistory
+  setTelemetryHistory,
+  cloudEndpoint,
+  setCloudEndpoint
 }) {
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
 
@@ -662,15 +665,63 @@ export default function IotDashboard({
           </div>
         </div>
 
+        {/* Cloud Ingest Endpoint Configurator */}
+        <div className="bg-slate-900/95 rounded-2xl p-4 border border-white/10 space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <span className="text-xs font-bold text-white flex items-center gap-2">
+              <Globe className="w-4 h-4 text-emerald-400" />
+              <span>Target Telemetry Ingest URL (Cloud or Localhost):</span>
+            </span>
+            <span
+              className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold w-fit ${
+                cloudEndpoint
+                  ? 'bg-purple-950 text-purple-300 border border-purple-700'
+                  : 'bg-emerald-950 text-emerald-300 border border-emerald-700'
+              }`}
+            >
+              {cloudEndpoint ? '🌐 CLOUD INGEST ACTIVE' : '💻 LOCALHOST / IN-BROWSER'}
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={cloudEndpoint || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCloudEndpoint(val);
+                if (val.trim()) {
+                  localStorage.setItem('agri_cloud_endpoint', val.trim());
+                } else {
+                  localStorage.removeItem('agri_cloud_endpoint');
+                }
+              }}
+              placeholder="e.g. https://sudarshana-agri-backend.onrender.com (or leave blank for localhost:5000)"
+              className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs font-mono text-emerald-300 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+            />
+            {cloudEndpoint && (
+              <button
+                onClick={() => {
+                  setCloudEndpoint('');
+                  localStorage.removeItem('agri_cloud_endpoint');
+                }}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 transition-all shrink-0"
+              >
+                Reset to Local
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Server Endpoint Code Box */}
         <div className="bg-slate-950/90 rounded-2xl p-4 border border-slate-800 font-mono text-xs overflow-x-auto text-emerald-300 space-y-1.5 shadow-inner">
-          <div className="text-slate-400">// In agri_care_esp32.ino, set your PC's IP address:</div>
+          <div className="text-slate-400">// In agri_care_esp32.ino, set your Server URL (Cloud HTTPS or Local IP):</div>
           <div className="text-amber-300">
-            const char* SERVER_URL = "http://&lt;YOUR_PC_IP&gt;:5000/api/telemetry";
+            const char* SERVER_URL = "{cloudEndpoint ? (cloudEndpoint.includes('/api/telemetry') ? cloudEndpoint : `${cloudEndpoint}/api/telemetry`) : 'http://<YOUR_PC_IP>:5000/api/telemetry'}";
           </div>
           <div className="text-slate-400 pt-1">// Test telemetry ingestion from PowerShell / Terminal:</div>
           <div className="text-slate-200">
-            curl -X POST http://localhost:5000/api/telemetry -H "Content-Type: application/json" -d '&#123;"device_id":"ESP32-NODE","air_temperature":28.4,"water_temperature":24.5,"humidity":72.0,"soil_moisture":65.0,"tds_ppm":385&#125;'
+            curl -X POST {cloudEndpoint ? (cloudEndpoint.includes('/api/telemetry') ? cloudEndpoint : `${cloudEndpoint}/api/telemetry`) : 'http://localhost:5000/api/telemetry'} -H "Content-Type: application/json" -d '&#123;"device_id":"ESP32-NODE","air_temperature":28.4,"water_temperature":24.5,"humidity":72.0,"soil_moisture":65.0,"tds_ppm":385&#125;'
           </div>
         </div>
       </div>

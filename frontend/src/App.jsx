@@ -34,12 +34,21 @@ export default function App() {
     { time: '18:00', moisture: 64.5, temperature: 28.4, humidity: 71.2, tds: 38 }
   ]);
 
-  // Live polling for ESP32 telemetry from server.py /api/telemetry
+  // Cloud Telemetry Backend URL (e.g. Render/Railway URL or local /api/telemetry)
+  const [cloudEndpoint, setCloudEndpoint] = useState(() => {
+    return localStorage.getItem('agri_cloud_endpoint') || (import.meta.env.VITE_BACKEND_URL || '');
+  });
+
+  // Live polling for ESP32 telemetry from local server or cloud endpoint
   useEffect(() => {
     let isMounted = true;
     const fetchLiveTelemetry = async () => {
       try {
-        const response = await fetch('/api/telemetry');
+        const targetUrl = cloudEndpoint.trim()
+          ? (cloudEndpoint.includes('/api/telemetry') ? cloudEndpoint.trim() : `${cloudEndpoint.replace(/\/$/, '')}/api/telemetry`)
+          : '/api/telemetry';
+
+        const response = await fetch(targetUrl);
         if (!response.ok) return;
         const data = await response.json();
         if (!isMounted) return;
@@ -143,6 +152,8 @@ export default function App() {
             setTelemetryData={setTelemetryData}
             telemetryHistory={telemetryHistory}
             setTelemetryHistory={setTelemetryHistory}
+            cloudEndpoint={cloudEndpoint}
+            setCloudEndpoint={setCloudEndpoint}
           />
         )}
 

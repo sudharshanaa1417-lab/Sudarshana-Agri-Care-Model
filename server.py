@@ -236,4 +236,6 @@ if __name__ == '__main__':
     print("Running on: http://localhost:5000")
     print("ESP32 Ingest URL: http://<LAN_IP>:5000/api/telemetry")
     print("=======================================================\n")
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Running on port: {port}")
+    app.run(host='0.0.0.0', port=port, debug=False)

@@ -38,6 +38,7 @@
 */
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <DHT.h>
 #include <OneWire.h>
@@ -295,9 +296,18 @@ void sendTelemetryHttp() {
   }
 
   HTTPClient http;
-  http.begin(SERVER_URL);
+  WiFiClientSecure secureClient;
+
+  // Determine if endpoint is Cloud HTTPS or Local HTTP
+  if (String(SERVER_URL).startsWith("https://")) {
+    secureClient.setInsecure(); // Allows connecting to cloud HTTPS (e.g. Render/Railway) without CA cert hassle
+    http.begin(secureClient, SERVER_URL);
+  } else {
+    http.begin(SERVER_URL);
+  }
+
   http.addHeader("Content-Type", "application/json");
-  http.setTimeout(2500); // 2.5 second timeout
+  http.setTimeout(3500); // 3.5 second timeout
 
   // Build JSON string cleanly without external library dependency
   char jsonBuffer[384];
