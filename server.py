@@ -98,9 +98,10 @@ telemetry_state = {
 }
 
 @app.route('/api/status', methods=['GET'])
+@app.route('/status', methods=['GET'])
 def get_status():
     age = time.time() - telemetry_state["last_ping_timestamp"]
-    is_online = (telemetry_state["last_ping_timestamp"] > 0) and (age <= 15)
+    is_online = (telemetry_state["last_ping_timestamp"] > 0) and (age <= 45)
     return jsonify({
         "status": "active",
         "app": "Sudharshana Agri_Care Model",
@@ -112,6 +113,7 @@ def get_status():
     })
 
 @app.route('/api/telemetry', methods=['GET', 'POST'])
+@app.route('/telemetry', methods=['GET', 'POST'])
 def handle_telemetry():
     global telemetry_history_buffer
     if request.method == 'POST':
@@ -168,7 +170,7 @@ def handle_telemetry():
             return jsonify({"status": "error", "message": str(e)}), 400
     else:
         age = time.time() - telemetry_state["last_ping_timestamp"]
-        telemetry_state["online"] = (telemetry_state["last_ping_timestamp"] > 0) and (age <= 15)
+        telemetry_state["online"] = (telemetry_state["last_ping_timestamp"] > 0) and (age <= 45)
         response_data = dict(telemetry_state)
         response_data["history"] = telemetry_history_buffer
         return jsonify(response_data)
@@ -221,14 +223,18 @@ def predict_disease():
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
-# Catch-all route to serve the SPA
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
+# Catch-all route to serve the SPA or ingest telemetry if POSTed
+@app.route('/', defaults={'path': ''}, methods=['GET', 'POST'])
+@app.route('/<path:path>', methods=['GET', 'POST'])
 def serve_frontend(path):
+    if request.method == 'POST':
+        return handle_telemetry()
     dist_dir = BASE_DIR / 'frontend' / 'dist'
     if path != "" and (dist_dir / path).exists():
         return send_from_directory(dist_dir, path)
-    return send_from_directory(dist_dir, 'index.html')
+    if (dist_dir / 'index.html').exists():
+        return send_from_directory(dist_dir, 'index.html')
+    return get_status()
 
 if __name__ == '__main__':
     print("\n=======================================================")
